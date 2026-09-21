@@ -1,0 +1,24 @@
+# ---------------------------------------------------------------------------
+# The provider list for this deployment.
+
+models:
+  # --- Google AI Studio (Gemini): free tier, no billing account needed -------
+  - model_name: gemini-flash
+    litellm_params:
+      model: gemini/gemini-3.6-flash
+      api_key: os.environ/GEMINI_API_KEY
+    model_info:
+      mode: chat
+      description: Gemini 3.6 Flash via Google AI Studio. Free tier, rate limited.
+     
+  # --- Hugging Face Inference Providers --------------------------------------
+  # The token needs the "Make calls to Inference Providers" permission; a plain
+  # read token is not enough. Not every repo is served on the free tier, so a
+  # 404 here usually means the model is unavailable rather than misconfigured.
+  - model_name: hf-llama
+    litellm_params:
+      model: huggingface/meta-llama/Llama-3.3-70B-Instruct
+      api_key: os.environ/HUGGINGFACE_API_KEY
+    model_info:
+      mode: chat
+      description: Llama 3.3 70B Instruct via Hugging Face Inference Providers.

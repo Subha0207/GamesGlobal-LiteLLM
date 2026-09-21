@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: litellm-config
+  namespace: litellm
+data:
+  config.yaml: |
+    # ---------------------------------------------------------------------------
+    # The provider/model list deliberately lives in Postgres, not in this file and
+    # not typed into the UI. store_model_in_db makes the DB the source of truth;
+    # scripts/40-seed-providers.sh pushes providers/models.yaml in over the admin
+    # API, so the list is version-controlled and reproducible.
+    # An empty model_list here is intentional.
+    # ---------------------------------------------------------------------------
+    model_list: []
+
+    general_settings:
+      store_model_in_db: true
+
+      # Every replica re-reads the model table on this interval, so a seeded
+      # provider shows up everywhere within 30s without a restart.
+      proxy_config_reload_interval_seconds: 30
+
+      # Batch spend writes instead of one write per request.
+      proxy_batch_write_at: 60
+
+      database_connection_pool_limit: 10
+
+      # Serve traffic even if Postgres blips. Spend is buffered in Valkey.
+      allow_requests_on_db_unavailable: true
+
+      disable_error_logs: true
+
+    router_settings:
+      routing_strategy: simple-shuffle
+      redis_host: os.environ/REDIS_HOST
+      redis_port: os.environ/REDIS_PORT
+
+    litellm_settings:
+      set_verbose: false
+      json_logs: true
+      request_timeout: 600
+      drop_params: true
+
+      cache: true
+      cache_params:
+        type: redis
+        host: os.environ/REDIS_HOST
+        port: os.environ/REDIS_PORT
+        ttl: 600

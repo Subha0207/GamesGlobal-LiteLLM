@@ -1,0 +1,11 @@
+.terraform/
+terraform.tfvars
+*.tfstate
+*.tfstate.*
+crash.log
+
+# rendered manifests contain real secrets
+k8s/rendered/
+.env
+__pycache__/
+*.pyc

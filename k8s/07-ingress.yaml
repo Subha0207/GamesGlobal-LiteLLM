@@ -1,0 +1,31 @@
+# Exposes both the OpenAI-compatible proxy (/v1/...) and the Admin UI (/ui)
+# on one internet-facing ALB, created by the AWS Load Balancer Controller.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: litellm
+  namespace: litellm
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '${ALB_LISTEN_PORTS}'
+    alb.ingress.kubernetes.io/inbound-cidrs: ${ALB_INBOUND_CIDRS}
+    alb.ingress.kubernetes.io/healthcheck-path: /health/liveliness
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "15"
+    alb.ingress.kubernetes.io/success-codes: "200"
+    # Streaming responses need a generous idle timeout.
+    alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=600
+    alb.ingress.kubernetes.io/certificate-arn: ${ACM_CERTIFICATE_ARN}
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: litellm
+                port:
+                  number: 4000

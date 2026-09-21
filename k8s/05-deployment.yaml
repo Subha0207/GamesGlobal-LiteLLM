@@ -1,0 +1,105 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: litellm
+  namespace: litellm
+  labels:
+    app: litellm
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: litellm
+  template:
+    metadata:
+      labels:
+        app: litellm
+    spec:
+      serviceAccountName: litellm
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    app: litellm
+      containers:
+        - name: litellm
+          image: ${LITELLM_IMAGE}
+          imagePullPolicy: IfNotPresent
+          args:
+            - "--config"
+            - "/app/proxy_server_config.yaml"
+            - "--port"
+            - "4000"
+            # One worker per pod: scale with replicas, not with workers.
+            - "--num_workers"
+            - "1"
+          ports:
+            - name: http
+              containerPort: 4000
+          envFrom:
+            # DATABASE_URL, LITELLM_MASTER_KEY, LITELLM_SALT_KEY, REDIS_*,
+            # UI_USERNAME/UI_PASSWORD and any provider API keys.
+            - secretRef:
+                name: litellm-secrets
+          env:
+            # The model/provider list is read from and written to Postgres.
+            - name: STORE_MODEL_IN_DB
+              value: "True"
+            # Migrations are owned by the Job, not by the serving pods.
+            - name: DISABLE_SCHEMA_UPDATE
+              value: "True"
+            - name: LITELLM_MODE
+              value: "PRODUCTION"
+            - name: LITELLM_LOG
+              value: "ERROR"
+            - name: AWS_REGION
+              value: ${AWS_REGION}
+          volumeMounts:
+            - name: config
+              mountPath: /app/proxy_server_config.yaml
+              subPath: config.yaml
+          startupProbe:
+            httpGet:
+              path: /health/liveliness
+              port: 4000
+            failureThreshold: 30
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health/liveliness
+              port: 4000
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health/readiness
+              port: 4000
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              # 500m, not 1. With replicas=2 and maxUnavailable=0 a rollout
+              # needs a third pod to fit alongside the two running ones; at a
+              # full core each that never schedules on 2x t3.large and the
+              # rollout deadlocks with the surge pod Pending forever.
+              # LiteLLM is I/O-bound waiting on provider APIs, so it does not
+              # need a reserved core to serve this POC's traffic.
+              cpu: "500m"
+              memory: "2Gi"
+            limits:
+              memory: "4Gi"
+      volumes:
+        - name: config
+          configMap:
+            name: litellm-config

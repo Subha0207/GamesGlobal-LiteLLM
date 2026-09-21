@@ -1,0 +1,14 @@
+name   = "litellm-poc"
+region = "us-east-1"
+
+# Lock the ALB down to where you actually browse from. 0.0.0.0/0 puts the UI on
+# the open internet, which is fine for a throwaway POC and nothing else.
+ingress_allowed_cidrs = ["0.0.0.0/0"]
+
+# Set to put the UI behind HTTPS. Leave empty for plain HTTP on port 80.
+acm_certificate_arn = ""
+
+node_instance_types     = ["t3.large"]
+node_desired_size       = 2
+postgres_instance_class = "db.t4g.medium"
+valkey_node_type        = "cache.t4g.micro"
